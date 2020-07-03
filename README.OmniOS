@@ -13,7 +13,18 @@ are included at the end of this file.
 
 =======================================================================
 
-## No pending updates
+### 12867 Mis-programmed pcie bridge leaves 64-bit device unusable
+
+	Packages: system/kernel
+	Hotfix: https://hf.omnios.org/r151034/pci-enumeration.p5p
+
+### 12901 loader: can not read zfs pool with slog removed
+
+	Packages: system/boot/loader
+
+### Add facet to selectively disable dependencies from illumos-omnios to omnios-extra
+
+	Packages: system/test/smbclient
 
 =======================================================================
 
