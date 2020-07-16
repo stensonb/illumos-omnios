@@ -12,6 +12,7 @@
 /*
  * Copyright 2020, The University of Queensland
  * Copyright (c) 2018, Joyent, Inc.
+ * Copyright 2020 RackTop Systems, Inc.
  */
 
 #ifndef _MLXCX_REG_H
@@ -58,6 +59,11 @@
 #define	MLXCX_CMD_TRANSPORT_PCI		7
 #define	MLXCX_CMD_HW_OWNED		0x01
 #define	MLXCX_CMD_STATUS(x)		((x) >> 1)
+
+/*
+ * You can't have more commands pending, than bit size of a doorbell
+ */
+#define	MLXCX_CMD_MAX		(sizeof (uint32_t) * NBBY)
 
 #define	MLXCX_UAR_CQ_ARM	0x0020
 #define	MLXCX_UAR_EQ_ARM	0x0040
@@ -151,6 +157,11 @@ typedef struct {
 	uint24be_t	mled_completion_cqn;
 } mlxcx_evdata_completion_t;
 
+typedef struct {
+	uint32be_t	mled_cmd_completion_vec;
+	uint8_t		mled_cmd_completion_rsvd[24];
+} mlxcx_evdata_cmd_completion_t;
+
 typedef enum {
 	MLXCX_EV_QUEUE_TYPE_QP	= 0x0,
 	MLXCX_EV_QUEUE_TYPE_RQ	= 0x1,
@@ -174,6 +185,7 @@ typedef struct {
 	uint8_t		mleqe_rsvd3[28];
 	union {
 		uint8_t				mleqe_unknown_data[28];
+		mlxcx_evdata_cmd_completion_t	mleqe_cmd_completion;
 		mlxcx_evdata_completion_t	mleqe_completion;
 		mlxcx_evdata_page_request_t	mleqe_page_request;
 		mlxcx_evdata_port_state_t	mleqe_port_state;
@@ -389,8 +401,16 @@ typedef enum {
 	MLXCX_WQE_OP_RDMA_R		= 0x10,
 } mlxcx_wqe_opcode_t;
 
+#define	MLXCX_WQE_OCTOWORD	16
 #define	MLXCX_SQE_MAX_DS	((1 << 6) - 1)
-#define	MLXCX_SQE_MAX_PTRS	61
+/*
+ * Calculate the max number of address pointers in a single ethernet
+ * send message. This is the remainder from MLXCX_SQE_MAX_DS
+ * after accounting for the Control and Ethernet segements.
+ */
+#define	MLXCX_SQE_MAX_PTRS	(MLXCX_SQE_MAX_DS - \
+	(sizeof (mlxcx_wqe_eth_seg_t) + sizeof (mlxcx_wqe_control_seg_t)) / \
+	MLXCX_WQE_OCTOWORD)
 
 typedef enum {
 	MLXCX_SQE_FENCE_NONE		= 0x0,
@@ -1284,22 +1304,25 @@ typedef struct {
 
 /*
  * This is an artificial limit that we're imposing on our actions.
+ * Large enough to limit the number of manage pages calls we have to
+ * make, but not so large that it will overflow any of the command
+ * mailboxes.
  */
-#define	MLXCX_MANAGE_PAGES_MAX_PAGES	512
+#define	MLXCX_MANAGE_PAGES_MAX_PAGES	4096
 
 typedef struct {
 	mlxcx_cmd_in_t	mlxi_manage_pages_head;
 	uint8_t		mlxi_manage_pages_rsvd[2];
 	uint16be_t	mlxi_manage_pages_func;
 	uint32be_t	mlxi_manage_pages_npages;
-	uint64be_t	mlxi_manage_pages_pas[MLXCX_MANAGE_PAGES_MAX_PAGES];
+	uint64be_t	mlxi_manage_pages_pas[];
 } mlxcx_cmd_manage_pages_in_t;
 
 typedef struct {
 	mlxcx_cmd_out_t	mlxo_manage_pages_head;
 	uint32be_t	mlxo_manage_pages_npages;
 	uint8_t		mlxo_manage_pages_rsvd[4];
-	uint64be_t	mlxo_manage_pages_pas[MLXCX_MANAGE_PAGES_MAX_PAGES];
+	uint64be_t	mlxo_manage_pages_pas[];
 } mlxcx_cmd_manage_pages_out_t;
 
 typedef enum {
@@ -2259,6 +2282,28 @@ typedef enum {
 	MLXCX_PROTO_50GBASE_KR2			= 1UL << 31,
 } mlxcx_eth_proto_t;
 
+#define	MLXCX_PROTO_100M	MLXCX_PROTO_SGMII_100BASE
+
+#define	MLXCX_PROTO_1G		(MLXCX_PROTO_1000BASE_KX | MLXCX_PROTO_SGMII)
+
+#define	MLXCX_PROTO_10G		(MLXCX_PROTO_10GBASE_CX4 | \
+	MLXCX_PROTO_10GBASE_KX4 | MLXCX_PROTO_10GBASE_KR | \
+	MLXCX_PROTO_10GBASE_CR | MLXCX_PROTO_10GBASE_SR | \
+	MLXCX_PROTO_10GBASE_ER_LR)
+
+#define	MLXCX_PROTO_25G		(MLXCX_PROTO_25GBASE_CR | \
+	MLXCX_PROTO_25GBASE_KR | MLXCX_PROTO_25GBASE_SR)
+
+#define	MLXCX_PROTO_40G		(MLXCX_PROTO_40GBASE_SR4 | \
+	MLXCX_PROTO_40GBASE_LR4_ER4 | MLXCX_PROTO_40GBASE_CR4 | \
+	MLXCX_PROTO_40GBASE_KR4)
+
+#define	MLXCX_PROTO_50G		(MLXCX_PROTO_50GBASE_CR2 | \
+	MLXCX_PROTO_50GBASE_KR2 | MLXCX_PROTO_50GBASE_SR2)
+
+#define	MLXCX_PROTO_100G	(MLXCX_PROTO_100GBASE_CR4 | \
+	MLXCX_PROTO_100GBASE_SR4 | MLXCX_PROTO_100GBASE_KR4)
+
 typedef enum {
 	MLXCX_AUTONEG_DISABLE_CAP	= 1 << 5,
 	MLXCX_AUTONEG_DISABLE		= 1 << 6
@@ -2473,6 +2518,8 @@ typedef struct {
 } mlxcx_cmd_access_register_out_t;
 
 #pragma pack()
+
+CTASSERT(MLXCX_SQE_MAX_PTRS > 0);
 
 #ifdef __cplusplus
 }
