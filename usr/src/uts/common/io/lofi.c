@@ -25,6 +25,7 @@
  * Copyright (c) 2016 Andrey Sokolov
  * Copyright 2016 Toomas Soome <tsoome@me.com>
  * Copyright 2019 Joyent, Inc.
+ * Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
  */
 
 /*
@@ -188,8 +189,9 @@
 		return (EINVAL); \
 	}
 
-#define	LOFI_TIMEOUT	30
+#define	LOFI_TIMEOUT	120
 
+int lofi_timeout = LOFI_TIMEOUT;
 static void *lofi_statep;
 static kmutex_t lofi_lock;		/* state lock */
 static id_space_t *lofi_id;		/* lofi ID values */
@@ -2748,24 +2750,29 @@ lofi_copy_devpath(struct lofi_ioctl *klip)
 	}
 
 	(void) snprintf(namebuf, sizeof (namebuf), "%d", klip->li_id);
-	ticks = ddi_get_lbolt() + LOFI_TIMEOUT * drv_usectohz(1000000);
 
 	mutex_enter(&lofi_devlink_cache.ln_lock);
-	error = nvlist_lookup_nvlist(lofi_devlink_cache.ln_data, namebuf, &nvl);
-	while (error != 0) {
+	for (;;) {
+		error = nvlist_lookup_nvlist(lofi_devlink_cache.ln_data,
+		    namebuf, &nvl);
+
+		if (error == 0 &&
+		    nvlist_lookup_string(nvl, DEV_NAME, &str) == 0 &&
+		    strncmp(str, "/dev/" LOFI_CHAR_NAME,
+		    sizeof ("/dev/" LOFI_CHAR_NAME) - 1) != 0) {
+			(void) strlcpy(klip->li_devpath, str,
+			    sizeof (klip->li_devpath));
+			break;
+		}
+		/*
+		 * Either there is no data in the cache, or the
+		 * cache entry still has the wrong device name.
+		 */
+		ticks = ddi_get_lbolt() + lofi_timeout * drv_usectohz(1000000);
 		error = cv_timedwait(&lofi_devlink_cache.ln_cv,
 		    &lofi_devlink_cache.ln_lock, ticks);
 		if (error == -1)
-			break;
-		error = nvlist_lookup_nvlist(lofi_devlink_cache.ln_data,
-		    namebuf, &nvl);
-	}
-
-	if (nvl != NULL) {
-		if (nvlist_lookup_string(nvl, DEV_NAME, &str) == 0) {
-			(void) strlcpy(klip->li_devpath, str,
-			    sizeof (klip->li_devpath));
-		}
+			break;	/* timeout */
 	}
 	mutex_exit(&lofi_devlink_cache.ln_lock);
 }
@@ -3029,6 +3036,7 @@ lofi_unmap_file(struct lofi_ioctl *ulip, int byfilename,
 	/* Remove name from devlink cache */
 	mutex_enter(&lofi_devlink_cache.ln_lock);
 	(void) nvlist_remove_all(lofi_devlink_cache.ln_data, namebuf);
+	cv_broadcast(&lofi_devlink_cache.ln_cv);
 	mutex_exit(&lofi_devlink_cache.ln_lock);
 done:
 	mutex_exit(&lofi_lock);
