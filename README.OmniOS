@@ -13,7 +13,10 @@ are included at the end of this file.
 
 =======================================================================
 
-## No pending updates
+## 12894 root zpool with SLOG should be bootable
+
+	system/file-system/zfs
+	https://hf.omnios.org/r151034/zfs-12894.p5p
 
 =======================================================================
 
