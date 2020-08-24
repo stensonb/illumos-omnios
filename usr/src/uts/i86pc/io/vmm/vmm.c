@@ -1220,7 +1220,7 @@ vm_get_register(struct vm *vm, int vcpu, int reg, uint64_t *retval)
 	if (vcpu < 0 || vcpu >= vm->maxcpus)
 		return (EINVAL);
 
-	if (reg >= VM_REG_LAST)
+	if (reg >= VM_REG_LAST || reg < 0)
 		return (EINVAL);
 
 	return (VMGETREG(vm->cookie, vcpu, reg, retval));
@@ -1235,7 +1235,7 @@ vm_set_register(struct vm *vm, int vcpuid, int reg, uint64_t val)
 	if (vcpuid < 0 || vcpuid >= vm->maxcpus)
 		return (EINVAL);
 
-	if (reg >= VM_REG_LAST)
+	if (reg >= VM_REG_LAST || reg < 0)
 		return (EINVAL);
 
 	error = VMSETREG(vm->cookie, vcpuid, reg, val);
