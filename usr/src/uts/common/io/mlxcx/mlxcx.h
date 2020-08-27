@@ -1080,6 +1080,7 @@ struct mlxcx {
 	 * Interrupts
 	 */
 	uint_t			mlx_intr_pri;
+	uint_t			mlx_async_intr_pri;
 	uint_t			mlx_intr_type;		/* always MSI-X */
 	int			mlx_intr_count;
 	size_t			mlx_intr_size;		/* allocation size */
