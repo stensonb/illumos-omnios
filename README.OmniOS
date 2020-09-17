@@ -18,6 +18,14 @@ are included at the end of this file.
 	system/file-system/zfs
 	https://hf.omnios.org/r151034/zfs-12894.p5p
 
+## 12744 gfx_private: bitmap_cons_clear 8-bit mode is using wrong color
+
+	system/kernel/platform
+	https://hf.omnios.org/r151034/console-12744.p5p
+
+## 12976 system panics with error in IP module
+	system/kernel
+
 =======================================================================
 
 =============================
