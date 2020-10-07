@@ -13,7 +13,15 @@ are included in the footer.
 
 =======================================================================
 
-## No pending updates
+## 13096 xnf asleep at wheel while freemem smashes into the ground
+## 13094 systems have more kmem caches than they used to
+## 13082 pageout needs a deadman
+
+    Packages:
+        all CTF
+
+    Archive:
+        https://hf.omnios.org/r151030/13096_13094_13082.p5p
 
 =======================================================================
 
